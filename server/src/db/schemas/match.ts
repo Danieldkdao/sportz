@@ -19,7 +19,7 @@ export const MatchTable = pgTable("matches", {
   awayTeam: varchar("away_team").notNull(),
   sport: varchar("sport").notNull(),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
-  endTime: timestamp("end_time", { withTimezone: true }),
+  endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   status: matchStatusEnum("status").notNull(),
   homeScore: integer("home_score").notNull().default(0),
   awayScore: integer("away_score").notNull().default(0),
