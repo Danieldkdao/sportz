@@ -7,10 +7,9 @@ import { db } from "../db/db.ts";
 import { MatchTable } from "../db/schema.ts";
 import { getMatchStatus } from "../utils/match-status.ts";
 import { desc } from "drizzle-orm";
+import { MAX_LIMIT } from "../lib/constants.ts";
 
 export const matchRouter = Router();
-
-const MAX_LIMIT = 100;
 
 matchRouter.get("/", async (req: Request, res: Response) => {
   const parsed = listMatchesQuerySchema.safeParse(req.query);

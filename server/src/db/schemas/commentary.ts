@@ -14,12 +14,14 @@ export const CommentaryTable = pgTable("commentary", {
   matchId: uuid("match_id")
     .references(() => MatchTable.id, { onDelete: "cascade" })
     .notNull(),
-  actor: varchar("actor").notNull(),
+  actor: varchar("actor"),
   message: varchar("message").notNull(),
-  minute: integer("minute").notNull(),
-  sequenceNo: integer("sequence_no").notNull(),
-  period: varchar("period").notNull(),
-  details: jsonb("details").$type<any>().notNull(),
+  minute: integer("minute"),
+  sequence: integer("sequence"),
+  period: varchar("period"),
+  eventType: varchar("eventType"),
+  metadata: jsonb("metadata"),
+  tags: varchar("tags").array(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
