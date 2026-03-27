@@ -11,8 +11,8 @@ export const listMatchesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
 });
 
-export const matchIdParamSchema = z.object({
-  id: z.coerce.string().min(1),
+export const matchIdParamsSchema = z.object({
+  id: z.uuid(),
 });
 
 export const createMatchSchema = z
