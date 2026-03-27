@@ -1,6 +1,8 @@
 import type { Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import type { MatchTable } from "../db/schema.ts";
+import { wsArcjet } from "../arcjet.ts";
+import type { Request } from "express";
 
 const sendJson = (socket: WebSocket, payload: any) => {
   if (socket.readyState !== WebSocket.OPEN) return;
@@ -27,7 +29,35 @@ export const attachWebSocketServer = (server: Server) => {
     maxPayload: 1024 * 1024,
   });
 
-  wss.on("connection", (socket: ExtWebSocket) => {
+  server.on("upgrade", async (req: Request, socket: WebSocket) => {
+    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+
+    if (pathname !== "/ws") {
+      return;
+    }
+
+    if (wsArcjet) {
+      try {
+        const decision = await wsArcjet.protect(req);
+
+        if (decision.isDenied()) {
+          const code = decision.reason.isRateLimit() ? 1013 : 1008;
+          const reason = decision.reason.isRateLimit()
+            ? "Rate limit exceeded"
+            : "Access denied";
+
+          socket.close(code, reason);
+          return;
+        }
+      } catch (error) {
+        console.error("WS Connection error", error);
+        socket.close(1011, "Server secuity error");
+        return;
+      }
+    }
+  });
+
+  wss.on("connection", async (socket: ExtWebSocket, _: Request) => {
     socket.isAlive = true;
     socket.on("pong", () => {
       socket.isAlive = true;
