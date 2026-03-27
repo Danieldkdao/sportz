@@ -2,6 +2,7 @@ export type Match = {
   id: string | number;
   sport: string;
   homeTeam: string;
+  awayTeam: string;
   status: string;
   startTime: string;
   endTime?: string;
