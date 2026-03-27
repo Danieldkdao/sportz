@@ -5,25 +5,29 @@ import { wsArcjet } from "../arcjet.ts";
 import type { Request } from "express";
 import { matchIdParamsSchema } from "../validation/matches.ts";
 
-const matchSubscribers = new Map();
+const matchSubscribers = new Map<string, Set<WebSocket>>();
 
-export const subscribe = (matchId: string, socket: WebSocket) => {
-  if (!matchSubscribers.has(matchId)) {
-    matchSubscribers.set(matchId, new Set());
+const getMatchSubscriptionKey = (matchId: string | number) => String(matchId);
+
+export const subscribe = (matchId: string | number, socket: WebSocket) => {
+  const key = getMatchSubscriptionKey(matchId);
+  if (!matchSubscribers.has(key)) {
+    matchSubscribers.set(key, new Set());
   }
 
-  matchSubscribers.get(matchId).add(socket);
+  matchSubscribers.get(key)?.add(socket);
 };
 
-const unsubscribe = (matchId: string, socket: WebSocket) => {
-  const subscribers = matchSubscribers.get(matchId);
+const unsubscribe = (matchId: string | number, socket: WebSocket) => {
+  const key = getMatchSubscriptionKey(matchId);
+  const subscribers = matchSubscribers.get(key);
 
   if (!subscribers) return;
 
   subscribers.delete(socket);
 
   if (subscribers.size === 0) {
-    matchSubscribers.delete(matchId);
+    matchSubscribers.delete(key);
   }
 };
 
@@ -33,8 +37,8 @@ export const cleanupSubscriptions = (socket: ExtWebSocket) => {
   }
 };
 
-export const broadcastToMatch = (matchId: string, payload: any) => {
-  const subscribers = matchSubscribers.get(matchId);
+export const broadcastToMatch = (matchId: string | number, payload: unknown) => {
+  const subscribers = matchSubscribers.get(getMatchSubscriptionKey(matchId));
 
   if (!subscribers || subscribers.size === 0) return;
 
@@ -47,13 +51,13 @@ export const broadcastToMatch = (matchId: string, payload: any) => {
   }
 };
 
-const sendJson = (socket: WebSocket, payload: any) => {
+const sendJson = (socket: WebSocket, payload: unknown) => {
   if (socket.readyState !== WebSocket.OPEN) return;
 
   socket.send(JSON.stringify(payload));
 };
 
-const broadcastToAll = (wss: WebSocketServer, payload: any) => {
+const broadcastToAll = (wss: WebSocketServer, payload: unknown) => {
   for (const client of wss.clients) {
     if (client.readyState !== WebSocket.OPEN) continue;
 
@@ -79,18 +83,28 @@ const handleMessage = (socket: ExtWebSocket, data: WebSocket.RawData) => {
     message?.type === "subscribe" &&
     matchIdParamsSchema.safeParse({ id: message.matchId }).success
   ) {
-    subscribe(message.matchId, socket);
-    socket.subscriptions.add(message.matchId);
-    sendJson(socket, { type: "subscribed", matchId: message.matchId });
+    const matchIdResult = matchIdParamsSchema.safeParse({ id: message.matchId });
+    if (!matchIdResult.success) {
+      return;
+    }
+    const key = getMatchSubscriptionKey(matchIdResult.data.id);
+    subscribe(key, socket);
+    socket.subscriptions.add(key);
+    sendJson(socket, { type: "subscribed", matchId: matchIdResult.data.id });
   }
 
   if (
     message?.type === "unsubscribe" &&
     matchIdParamsSchema.safeParse({ id: message.matchId }).success
   ) {
-    unsubscribe(message.matchId, socket);
-    socket.subscriptions.delete(message.matchId);
-    sendJson(socket, { type: "unsubscribed", matchId: message.matchId });
+    const matchIdResult = matchIdParamsSchema.safeParse({ id: message.matchId });
+    if (!matchIdResult.success) {
+      return;
+    }
+    const key = getMatchSubscriptionKey(matchIdResult.data.id);
+    unsubscribe(key, socket);
+    socket.subscriptions.delete(key);
+    sendJson(socket, { type: "unsubscribed", matchId: matchIdResult.data.id });
   }
 };
 
@@ -170,7 +184,10 @@ export const attachWebSocketServer = (server: Server) => {
     broadcastToAll(wss, { type: "match_created", data: match });
   };
 
-  const broadcastCommentary = (matchId: string, comment: string) => {
+  const broadcastCommentary = (
+    matchId: string | number,
+    comment: typeof MatchTable.$inferSelect | unknown,
+  ) => {
     broadcastToMatch(matchId, { type: "commentary", data: comment });
   };
 

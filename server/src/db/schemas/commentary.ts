@@ -3,15 +3,15 @@ import {
   integer,
   jsonb,
   pgTable,
+  serial,
   timestamp,
-  uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { MatchTable } from "./match.ts";
 
 export const CommentaryTable = pgTable("commentary", {
-  id: uuid().primaryKey().defaultRandom(),
-  matchId: uuid("match_id")
+  id: serial().primaryKey(),
+  matchId: serial("match_id")
     .references(() => MatchTable.id, { onDelete: "cascade" })
     .notNull(),
   actor: varchar("actor"),

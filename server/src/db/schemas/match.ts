@@ -3,8 +3,8 @@ import {
   integer,
   pgEnum,
   pgTable,
+  serial,
   timestamp,
-  uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { CommentaryTable } from "./commentary.ts";
@@ -14,7 +14,7 @@ export type MatchStatusType = (typeof matchStatuses)[number];
 export const matchStatusEnum = pgEnum("match-statuses", matchStatuses);
 
 export const MatchTable = pgTable("matches", {
-  id: uuid().primaryKey().defaultRandom(),
+  id: serial().primaryKey(),
   homeTeam: varchar("home_team").notNull(),
   awayTeam: varchar("away_team").notNull(),
   sport: varchar("sport").notNull(),

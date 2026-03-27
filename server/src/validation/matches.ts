@@ -12,7 +12,7 @@ export const listMatchesQuerySchema = z.object({
 });
 
 export const matchIdParamsSchema = z.object({
-  id: z.uuid(),
+  id: z.coerce.number().int().nonnegative(),
 });
 
 export const createMatchSchema = z
