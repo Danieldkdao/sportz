@@ -3,6 +3,7 @@ import express, { type Request, type Response } from "express";
 import http from "http";
 import { matchRouter } from "./routes/matches.ts";
 import { attachWebSocketServer } from "./ws/server.ts";
+import { securityMiddleware } from "./arcjet.ts";
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ const server = http.createServer(app);
 
 app.use(express.json());
 
+app.use(securityMiddleware());
 app.use("/matches", matchRouter);
 
 const { broadcastMatchCreated } = attachWebSocketServer(server);
