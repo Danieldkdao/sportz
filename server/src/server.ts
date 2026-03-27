@@ -3,7 +3,6 @@ import express, { type Request, type Response } from "express";
 import http from "http";
 import { matchRouter } from "./routes/matches.ts";
 import { attachWebSocketServer } from "./ws/server.ts";
-import { securityMiddleware } from "./arcjet.ts";
 import { commentaryRouter } from "./routes/commentary.ts";
 
 dotenv.config();
@@ -15,7 +14,8 @@ const server = http.createServer(app);
 
 app.use(express.json());
 
-app.use(securityMiddleware());
+// app.use(securityMiddleware());
+// todo: add later after test
 
 app.use("/matches", matchRouter);
 app.use("/matches/:id/commentary", commentaryRouter);

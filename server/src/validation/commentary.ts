@@ -9,6 +9,7 @@ export const createCommentarySchema = z.object({
   sequence: z.number().int().optional(),
   period: z.string().optional(),
   eventType: z.string().optional(),
+  actor: z.string().optional(),
   team: z.string().optional(),
   message: z.string().min(1),
   metadata: z.record(z.string(), z.any()).optional(),
