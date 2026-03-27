@@ -1,0 +1,47 @@
+import { z } from "zod";
+import type { MatchStatusType } from "../db/schema.ts";
+
+export const MATCH_STATUS: Record<string, MatchStatusType> = {
+  SCHEDULED: "scheduled",
+  LIVE: "live",
+  FINISHED: "finished",
+};
+
+export const listMatchesQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional(),
+});
+
+export const matchIdParamSchema = z.object({
+  id: z.coerce.string().min(1),
+});
+
+const isoDateString = z.string().refine((val) => !isNaN(Date.parse(val)), {
+  error: "Invalid ISO date string",
+});
+
+export const createMatchSchema = z
+  .object({
+    sport: z.string().min(1),
+    homeTeam: z.string().min(1),
+    awayTeam: z.string().min(1),
+    startTime: isoDateString,
+    endTime: isoDateString,
+    homeScore: z.coerce.number().int().nonnegative().optional(),
+    awayScore: z.coerce.number().int().nonnegative().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const start = new Date(data.startTime);
+    const end = new Date(data.endTime);
+    if (end <= start) {
+      ctx.addIssue({
+        message: "endTime must be chronologically after startTime",
+        path: ["endTime"],
+        code: "custom",
+      });
+    }
+  });
+
+export const updateScoreSchema = z.object({
+  homeScore: z.coerce.number().int().nonnegative(),
+  awayScore: z.coerce.number().int().nonnegative(),
+});
