@@ -98,6 +98,11 @@ type CreateCommentaryPayload = {
   tags?: string[];
 };
 
+type ScoreDelta = {
+  home: number;
+  away: number;
+};
+
 async function readJsonFile<T>(fileUrl: URL): Promise<T> {
   const raw = await fs.readFile(fileUrl, "utf8");
   return JSON.parse(raw) as T;
@@ -265,65 +270,64 @@ async function insertCommentary(
   return responsePayload.data;
 }
 
-// NOTE: Score delta logic is commented out because this codebase
-// does not expose score update endpoints.
-// function extractRuns(entry) {
-//   if (Number.isFinite(entry.runs)) {
-//     return entry.runs;
-//   }
-//   if (entry.metadata && Number.isFinite(entry.metadata.runs)) {
-//     return entry.metadata.runs;
-//   }
-//   if (entry.eventType === "four") {
-//     return 4;
-//   }
-//   if (entry.eventType === "six") {
-//     return 6;
-//   }
-//   if (entry.eventType === "run") {
-//     return 1;
-//   }
-//   return null;
-// }
-//
-// function scoreDeltaFromEntry(entry, match) {
-//   if (entry.scoreDelta && typeof entry.scoreDelta === "object") {
-//     return {
-//       home: Number(entry.scoreDelta.home || 0),
-//       away: Number(entry.scoreDelta.away || 0),
-//     };
-//   }
-//
-//   if (entry.eventType === "goal") {
-//     if (entry.team === match.homeTeam) {
-//       return { home: 1, away: 0 };
-//     }
-//     if (entry.team === match.awayTeam) {
-//       return { home: 0, away: 1 };
-//     }
-//   }
-//
-//   const runs = extractRuns(entry);
-//   if (runs !== null) {
-//     if (entry.team === match.homeTeam) {
-//       return { home: runs, away: 0 };
-//     }
-//     if (entry.team === match.awayTeam) {
-//       return { home: 0, away: runs };
-//     }
-//   }
-//
-//   return null;
-// }
-//
-// function fakeScoreDelta(matchState) {
-//   const nextSide = matchState.fakeNext === "home" ? "away" : "home";
-//   matchState.fakeNext = nextSide;
-//   const points = 1;
-//   return nextSide === "home"
-//     ? { home: points, away: 0 }
-//     : { home: 0, away: points };
-// }
+function extractRuns(entry: SeedCommentaryEntry): number | null {
+  if (Number.isFinite(entry.runs)) {
+    return Number(entry.runs);
+  }
+
+  if (
+    entry.metadata &&
+    typeof entry.metadata === "object" &&
+    Number.isFinite(entry.metadata.runs)
+  ) {
+    return Number(entry.metadata.runs);
+  }
+
+  if (entry.eventType === "four") {
+    return 4;
+  }
+  if (entry.eventType === "six") {
+    return 6;
+  }
+  if (entry.eventType === "run") {
+    return 1;
+  }
+
+  return null;
+}
+
+function scoreDeltaFromEntry(
+  entry: SeedCommentaryEntry,
+  match: ApiMatch,
+): ScoreDelta | null {
+  if (entry.scoreDelta && typeof entry.scoreDelta === "object") {
+    return {
+      home: Number(entry.scoreDelta.home || 0),
+      away: Number(entry.scoreDelta.away || 0),
+    };
+  }
+
+  if (entry.eventType === "goal") {
+    if (entry.team === match.homeTeam) {
+      return { home: 1, away: 0 };
+    }
+    if (entry.team === match.awayTeam) {
+      return { home: 0, away: 1 };
+    }
+  }
+
+  const runs = extractRuns(entry);
+  if (runs !== null) {
+    if (entry.team === match.homeTeam) {
+      return { home: runs, away: 0 };
+    }
+    if (entry.team === match.awayTeam) {
+      return { home: 0, away: runs };
+    }
+  }
+
+  return null;
+}
 
 function inningsRank(period: string | null | undefined): number {
   if (!period) {
@@ -616,17 +620,22 @@ function getMatchEntry(
   return matchMap.get(matchId) ?? null;
 }
 
-// NOTE: Score updates are not part of this codebase yet.
-// async function updateMatchScore(matchId, homeScore, awayScore) {
-//   const response = await fetch(`${API_URL}/matches/${matchId}/score`, {
-//     method: "PATCH",
-//     headers: { "content-type": "application/json" },
-//     body: JSON.stringify({ homeScore, awayScore }),
-//   });
-//   if (!response.ok) {
-//     throw new Error(`Failed to update score: ${response.status}`);
-//   }
-// }
+async function updateMatchScore(
+  matchId: string,
+  homeScore: number,
+  awayScore: number,
+) {
+  const response = await fetch(`${API_URL}/matches/${matchId}/score`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ homeScore, awayScore }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Failed to update score: ${response.status} ${details}`);
+  }
+}
 
 function randomMatchDelay() {
   const range = NEW_MATCH_DELAY_MAX_MS - NEW_MATCH_DELAY_MIN_MS;
@@ -741,19 +750,15 @@ async function seed() {
     const row = await insertCommentary(match.id, entry);
     console.log(`📣 [Match ${match.id}] ${row.message}`);
 
-    // NOTE: Score updates are intentionally disabled in this codebase.
-    // const isCricket = String(match.sport).toLowerCase() === "cricket";
-    // const delta = isCricket
-    //   ? cricketScoreDelta(entry, match, target)
-    //   : (scoreDeltaFromEntry(entry, match) ?? fakeScoreDelta(target));
-    // if (delta) {
-    //   target.score.home += delta.home;
-    //   target.score.away += delta.away;
-    //   await updateMatchScore(match.id, target.score.home, target.score.away);
-    //   console.log(
-    //     `📊 [Match ${match.id}] Score updated: ${target.score.home}-${target.score.away}`,
-    //   );
-    // }
+    const delta = scoreDeltaFromEntry(entry, match);
+    if (delta && (delta.home !== 0 || delta.away !== 0)) {
+      target.score.home += delta.home;
+      target.score.away += delta.away;
+      await updateMatchScore(match.id, target.score.home, target.score.away);
+      console.log(
+        `📊 [Match ${match.id}] Score updated: ${target.score.home}-${target.score.away}`,
+      );
+    }
 
     // NOTE: Match status updates are intentionally disabled in this codebase.
     // if (Number.isInteger(entry.matchId)) {

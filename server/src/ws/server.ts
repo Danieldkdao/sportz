@@ -37,7 +37,10 @@ export const cleanupSubscriptions = (socket: ExtWebSocket) => {
   }
 };
 
-export const broadcastToMatch = (matchId: string | number, payload: unknown) => {
+export const broadcastToMatch = (
+  matchId: string | number,
+  payload: unknown,
+) => {
   const subscribers = matchSubscribers.get(getMatchSubscriptionKey(matchId));
 
   if (!subscribers || subscribers.size === 0) return;
@@ -77,13 +80,16 @@ const handleMessage = (socket: ExtWebSocket, data: WebSocket.RawData) => {
     message = JSON.parse(data.toString());
   } catch (error) {
     sendJson(socket, { type: "error", message: "Invalid JSON" });
+    return;
   }
 
   if (
     message?.type === "subscribe" &&
     matchIdParamsSchema.safeParse({ id: message.matchId }).success
   ) {
-    const matchIdResult = matchIdParamsSchema.safeParse({ id: message.matchId });
+    const matchIdResult = matchIdParamsSchema.safeParse({
+      id: message.matchId,
+    });
     if (!matchIdResult.success) {
       return;
     }
@@ -97,7 +103,9 @@ const handleMessage = (socket: ExtWebSocket, data: WebSocket.RawData) => {
     message?.type === "unsubscribe" &&
     matchIdParamsSchema.safeParse({ id: message.matchId }).success
   ) {
-    const matchIdResult = matchIdParamsSchema.safeParse({ id: message.matchId });
+    const matchIdResult = matchIdParamsSchema.safeParse({
+      id: message.matchId,
+    });
     if (!matchIdResult.success) {
       return;
     }
@@ -105,6 +113,27 @@ const handleMessage = (socket: ExtWebSocket, data: WebSocket.RawData) => {
     unsubscribe(key, socket);
     socket.subscriptions.delete(key);
     sendJson(socket, { type: "unsubscribed", matchId: matchIdResult.data.id });
+  }
+
+  if (message?.type === "setSubscriptions" && Array.isArray(message.matchIds)) {
+    cleanupSubscriptions(socket);
+    socket.subscriptions.clear();
+
+    const subscribedMatchIds: number[] = [];
+
+    for (const matchId of message.matchIds) {
+      const matchIdResult = matchIdParamsSchema.safeParse({ id: matchId });
+      if (!matchIdResult.success) {
+        continue;
+      }
+
+      const key = getMatchSubscriptionKey(matchIdResult.data.id);
+      subscribe(key, socket);
+      socket.subscriptions.add(key);
+      subscribedMatchIds.push(matchIdResult.data.id);
+    }
+
+    sendJson(socket, { type: "subscriptions", matchIds: subscribedMatchIds });
   }
 };
 
@@ -191,5 +220,16 @@ export const attachWebSocketServer = (server: Server) => {
     broadcastToMatch(matchId, { type: "commentary", data: comment });
   };
 
-  return { broadcastMatchCreated, broadcastCommentary };
+  const broadcastScoreUpdates = (
+    matchId: string | number,
+    { homeScore, awayScore }: { homeScore: number; awayScore: number },
+  ) => {
+    broadcastToMatch(matchId, {
+      type: "score_update",
+      matchId,
+      data: { homeScore, awayScore },
+    });
+  };
+
+  return { broadcastMatchCreated, broadcastCommentary, broadcastScoreUpdates };
 };

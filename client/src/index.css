@@ -1,1 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', sans-serif;
+  
+  --color-brand-yellow: #FDE047;
+  --color-brand-blue: #BAE6FD;
+  --color-brand-dark: #18181B;
+  
+  --shadow-hard: 4px 4px 0px 0px #18181B;
+  --shadow-hard-sm: 2px 2px 0px 0px #18181B;
+}
+
+@layer base {
+  body {
+    @apply bg-[#FAFAFA] text-brand-dark;
+  }
+}

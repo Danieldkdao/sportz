@@ -54,12 +54,9 @@ export const useWebSocket = (
         setStatus("connected");
         reconnectAttempts.current = 0;
         if (subscribedMatchIdsRef.current.size > 0) {
-          socket.send(
-            JSON.stringify({
-              type: "setSubscriptions",
-              matchIds: Array.from(subscribedMatchIdsRef.current),
-            }),
-          );
+          for (const matchId of subscribedMatchIdsRef.current) {
+            socket.send(JSON.stringify({ type: "subscribe", matchId }));
+          }
         }
         console.log("[WebSocket] Connected successfully!");
       };

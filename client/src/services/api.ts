@@ -8,6 +8,7 @@ export const fetchMatches = async (limit = 50): Promise<MatchResponse> => {
     });
 
     if (!response.ok) {
+      console.log(response.ok);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
