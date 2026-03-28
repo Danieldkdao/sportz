@@ -46,7 +46,7 @@ export const useMatchData = (): UseMatchData => {
         }
         setMatches((prevMatches) =>
           prevMatches.map((m) => {
-            if (m.id == msg.matchId) {
+            if (String(m.id) === String(msg.matchId)) {
               return {
                 ...m,
                 homeScore: msg.data.homeScore,
@@ -60,7 +60,7 @@ export const useMatchData = (): UseMatchData => {
       case "commentary": {
         if (
           latestMatchIdRef.current === null ||
-          msg.data.matchId !== latestMatchIdRef.current
+          String(msg.data.matchId) !== String(latestMatchIdRef.current)
         ) {
           return;
         }
@@ -107,16 +107,8 @@ export const useMatchData = (): UseMatchData => {
           prevMatches.map((match) => [String(match.id), match]),
         );
         return nextMatches.map((match) => {
-          const matchId = String(match.id);
-          const prev = prevById.get(matchId);
-          if (prev && !subscribedMatchIdsRef.current.has(matchId)) {
-            return {
-              ...match,
-              homeScore: prev.homeScore,
-              awayScore: prev.awayScore,
-            };
-          }
-          return match;
+          const prev = prevById.get(String(match.id));
+          return prev ? { ...prev, ...match } : match;
         });
       });
       if (knownMatchIdsRef.current.size > 0) {
